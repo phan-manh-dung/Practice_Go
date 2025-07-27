@@ -16,6 +16,23 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	// Validate struct
+	validationErrors := ValidateStruct(user)
+	if len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"details": validationErrors,
+		})
+		return
+	}
+
+	// Kiểm tra SDT đã tồn tại chưa
+	var existingUser models.User
+	if err := db.GetDB().Where("sdt = ?", user.SDT).First(&existingUser).Error; err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Phone number already exists"})
+		return
+	}
+
 	result := db.GetDB().Create(&user)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
@@ -27,7 +44,18 @@ func CreateUser(c *gin.Context) {
 
 // delete user
 func DeleteUser(c *gin.Context) {
-	id := c.Param("id")
+	id, err := ValidateID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	// Kiểm tra user có tồn tại không
+	if !ValidateUserExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
 	var user models.User
 	result := db.GetDB().Unscoped().Delete(&user, id)
 	if result.Error != nil {
@@ -40,12 +68,41 @@ func DeleteUser(c *gin.Context) {
 
 // update user
 func UpdateUser(c *gin.Context) {
-	id := c.Param("id")
+	id, err := ValidateID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	// Kiểm tra user có tồn tại không
+	if !ValidateUserExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Validate struct
+	validationErrors := ValidateStruct(user)
+	if len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"details": validationErrors,
+		})
+		return
+	}
+
+	// Kiểm tra SDT đã tồn tại ở user khác chưa
+	var existingUser models.User
+	if err := db.GetDB().Where("sdt = ? AND id != ?", user.SDT, id).First(&existingUser).Error; err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Phone number already exists"})
+		return
+	}
+
 	result := db.GetDB().Model(&user).Where("id = ?", id).Updates(user)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})

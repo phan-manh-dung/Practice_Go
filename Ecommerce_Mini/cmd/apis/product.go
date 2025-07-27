@@ -8,11 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CreateUser tạo product mới
+// CreateProduct tạo product mới
 func CreateProduct(c *gin.Context) {
 	var product models.Product
 	if err := c.ShouldBindJSON(&product); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate struct
+	validationErrors := ValidateStruct(product)
+	if len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"details": validationErrors,
+		})
 		return
 	}
 
@@ -27,7 +37,18 @@ func CreateProduct(c *gin.Context) {
 
 // delete product
 func DeleteProduct(c *gin.Context) {
-	id := c.Param("id")
+	id, err := ValidateID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	// Kiểm tra product có tồn tại không
+	if !ValidateProductExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
 	var product models.Product
 	result := db.GetDB().Unscoped().Delete(&product, id)
 	if result.Error != nil {
@@ -38,14 +59,36 @@ func DeleteProduct(c *gin.Context) {
 	}
 }
 
-// update user
+// update product
 func UpdateProduct(c *gin.Context) {
-	id := c.Param("id")
+	id, err := ValidateID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	// Kiểm tra product có tồn tại không
+	if !ValidateProductExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
 	var product models.Product
 	if err := c.ShouldBindJSON(&product); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Validate struct
+	validationErrors := ValidateStruct(product)
+	if len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"details": validationErrors,
+		})
+		return
+	}
+
 	result := db.GetDB().Model(&product).Where("id = ?", id).Updates(product)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})

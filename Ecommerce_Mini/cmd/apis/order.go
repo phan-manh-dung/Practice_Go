@@ -16,6 +16,33 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
+	// Validate request struct
+	validationErrors := ValidateStruct(req)
+	if len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"details": validationErrors,
+		})
+		return
+	}
+
+	// Kiểm tra user có tồn tại không
+	if !ValidateUserExists(req.UserID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Kiểm tra tất cả products có tồn tại không
+	for _, detail := range req.OrderDetails {
+		if !ValidateProductExists(detail.ProductID) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":      "Product not found",
+				"product_id": detail.ProductID,
+			})
+			return
+		}
+	}
+
 	// Tạo order
 	order := models.Order{
 		UserID: req.UserID,
