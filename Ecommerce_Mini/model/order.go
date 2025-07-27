@@ -1,6 +1,9 @@
 package models
 
+import "gorm.io/gorm"
+
 type Order struct {
+	gorm.Model
 	ID           uint          `json:"id" gorm:"primaryKey"`
 	UserID       uint          `json:"user_id"` // fk key
 	User         User          `json:"user"`    // GORM hiểu đây là liên kết với bảng users

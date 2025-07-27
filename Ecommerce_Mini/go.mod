@@ -4,6 +4,8 @@ go 1.24.5
 
 require (
 	github.com/gin-gonic/gin v1.10.1
+	google.golang.org/grpc v1.62.1
+	google.golang.org/protobuf v1.34.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.1
 )
